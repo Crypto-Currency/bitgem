@@ -225,7 +225,7 @@ menuBar()->setNativeMenuBar(false);// menubar on form instead
 
     syncIconMovie = new QMovie(":/movies/update_spinner", "mng", this);
 
-    // Clicking on a transaction on the overview page simply sends you to transaction history page
+// Clicking on a transaction on the overview page simply sends you to transaction history page
     connect(overviewPage, SIGNAL(transactionClicked(QModelIndex)), this, SLOT(gotoHistoryPage()));
     connect(overviewPage, SIGNAL(transactionClicked(QModelIndex)), transactionView, SLOT(focusTransaction(QModelIndex)));
 
@@ -945,7 +945,11 @@ void BitcoinGUI::encryptWallet(bool status)
 
 void BitcoinGUI::backupWallet()
 {
-    QString saveDir = QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation);
+#if QT_VERSION < 0x050000
+  QString saveDir = QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation);
+#else
+  QString saveDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+#endif
     QString filename = QFileDialog::getSaveFileName(this, tr("Backup Wallet"), saveDir, tr("Wallet Data (*.dat)"));
     if(!filename.isEmpty()) {
         if(!walletModel->backupWallet(filename)) {
