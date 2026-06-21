@@ -25,8 +25,8 @@ using namespace boost;
 extern CClientUIInterface uiInterface;
 
 unsigned int nWalletDBUpdated;
-
-
+unsigned int loadProgress;
+char pString[256]; 
 
 //
 // CDB
@@ -72,11 +72,11 @@ bool CDBEnv::Open(boost::filesystem::path pathEnv_)
         return false;
 
     pathEnv = pathEnv_;
-    filesystem::path pathDataDir = pathEnv;
+    boost::filesystem::path pathDataDir = pathEnv;
     strPath = pathDataDir.string();
-    filesystem::path pathLogDir = pathDataDir / "database";
-    filesystem::create_directory(pathLogDir);
-    filesystem::path pathErrorFile = pathDataDir / "db.log";
+    boost::filesystem::path pathLogDir = pathDataDir / "database";
+    boost::filesystem::create_directory(pathLogDir);
+    boost::filesystem::path pathErrorFile = pathDataDir / "db.log";
     printf("dbenv.open LogDir=%s ErrorFile=%s\n", pathLogDir.string().c_str(), pathErrorFile.string().c_str());
 
     unsigned int nEnvFlags = 0;
@@ -465,7 +465,7 @@ void CDBEnv::Flush(bool fShutdown)
             else
                 mi++;
         }
-        printf("DBFlush(%s)%s ended %15"PRI64d"ms\n", fShutdown ? "true" : "false", fDbEnvInit ? "" : " db not started", GetTimeMillis() - nStart);
+        printf("DBFlush(%s)%s ended %15" PRI64d "ms\n", fShutdown ? "true" : "false", fDbEnvInit ? "" : " db not started", GetTimeMillis() - nStart);
         if (fShutdown)
         {
             char** listp;
@@ -625,6 +625,7 @@ bool CTxDB::LoadBlockIndex()
 
     unsigned int tempcount=0;
     unsigned int steptemp=0;
+
     string tempmess;
     string mess = "Calculating best chain...";
     uiInterface.InitMessage(_(mess.c_str()));
@@ -652,7 +653,6 @@ bool CTxDB::LoadBlockIndex()
       tempcount++;
       if(tempcount>=30000)
       {
-//        steptemp ++;
         tempmess = "Calculating stake modifiers / "+ boost::to_string(pindex);
         uiInterface.InitMessage(_(tempmess.c_str()));
         tempcount=0;
@@ -660,7 +660,7 @@ bool CTxDB::LoadBlockIndex()
         // ppcoin: calculate stake modifier checksum
         pindex->nStakeModifierChecksum = GetStakeModifierChecksum(pindex);
         if (!CheckStakeModifierCheckpoints(pindex->nHeight, pindex->nStakeModifierChecksum))
-            return error("CTxDB::LoadBlockIndex() : Failed stake modifier checkpoint height=%d, modifier=0x%016"PRI64x, pindex->nHeight, pindex->nStakeModifier);
+            return error("CTxDB::LoadBlockIndex() : Failed stake modifier checkpoint height=%d, modifier=0x%016" PRI64x, pindex->nHeight, pindex->nStakeModifier);
     }
 
     // Load hashBestChain pointer to end of best chain
@@ -703,7 +703,8 @@ bool CTxDB::LoadBlockIndex()
       tempcount++;
       if(tempcount>=100)
       {
-        steptemp ++;
+        steptemp++;
+        tempcount=0;
         tempmess=mess+" / "+ boost::to_string(pindex);
         uiInterface.InitMessage(_(tempmess.c_str()));
         tempcount=0;
@@ -840,8 +841,12 @@ bool CTxDB::LoadBlockIndexGuts()
     unsigned int fFlags = DB_SET_RANGE;
 
     unsigned int tempcount=0;
-    unsigned int steptemp=0;
     string tempmess;
+
+    double ccc = 0;
+    double cnt = 0;
+    int oldProgress = -1;
+    cnt = (double)boost::filesystem::file_size(GetDataDir() / "blkindex.dat") / 432.0;
 
     loop()
     {
@@ -887,14 +892,28 @@ bool CTxDB::LoadBlockIndexGuts()
             pindexNew->nBits          = diskindex.nBits;
             pindexNew->nNonce         = diskindex.nNonce;
 
+
+            ccc++;
             tempcount ++;
             if(tempcount>=1000)
             {
-              steptemp ++;
-              tempmess=mess+ boost::to_string(steptemp * 1000);
-              uiInterface.InitMessage(_(tempmess.c_str()));
               tempcount=0;
+
+              int progress = (ccc / cnt) * 100;
+              if (progress > 100)
+              {
+                progress = 100;
+              }
+              if (progress != oldProgress)
+              {
+                 loadProgress = progress;        // store for global use
+                oldProgress = progress;
+              }
+
+              sprintf(pString, _("loading blockchain  (%d\%)").c_str(),progress);
+              uiInterface.InitMessage(pString);
             }
+
 
             // Watch for genesis block
             if (pindexGenesisBlock == NULL && diskindex.GetBlockHash() == (!fTestNet ? hashGenesisBlock : hashGenesisBlockTestNet))

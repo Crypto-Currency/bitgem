@@ -131,7 +131,16 @@ bool AppInit(int argc, char* argv[])
             fprintf(stderr, "Error: Specified directory does not exist\n");
             Shutdown(NULL);
         }
-        ReadConfigFile(mapArgs, mapMultiArgs);
+
+        try
+        {
+          ReadConfigFile(mapArgs, mapMultiArgs);
+        }
+        catch (const std::exception& e)
+        {
+          fprintf(stderr, "\nConfiguration File Error: %s\n", e.what());
+          _exit(1);
+        }
 
         if (mapArgs.count("-?") || mapArgs.count("--help"))
         {
@@ -485,14 +494,14 @@ bool AppInit2()
     printf("Used data directory %s\n", strDataDir.c_str());
 
     //check for themes directory, and create if missing
-    if (!filesystem::exists(GetDataDir() / "themes"))
+    if (!boost::filesystem::exists(GetDataDir() / "themes"))
     {
       boost::filesystem::path temppath;
       temppath = GetDataDir() / "themes";
-      filesystem::create_directory(temppath);
+      boost::filesystem::create_directory(temppath);
       printf("created themes directory %s\n", temppath.string().c_str());
       temppath = GetDataDir() / "themes/images";
-      filesystem::create_directory(temppath);
+      boost::filesystem::create_directory(temppath);
       printf("created themes directory %s\n", temppath.string().c_str());
     }
 
@@ -522,7 +531,7 @@ bool AppInit2()
             return false;
     }
 
-    if (filesystem::exists(GetDataDir() / "wallet.dat"))
+    if (boost::filesystem::exists(GetDataDir() / "wallet.dat"))
     {
         CDBEnv::VerifyResult r = bitdb.Verify("wallet.dat", CWalletDB::Recover);
         if (r == CDBEnv::RECOVER_OK)
@@ -680,6 +689,9 @@ bool AppInit2()
         return false;
     }
 
+    if (fServer)
+      NewThread(ThreadRPCServer, NULL);
+
     uiInterface.InitMessage(_("Loading block index..."));
     printf("Loading block index...\n");
     nStart = GetTimeMillis();
@@ -694,7 +706,7 @@ bool AppInit2()
         printf("Shutdown requested. Exiting.\n");
         return false;
     }
-    printf(" block index %15"PRI64d"ms\n", GetTimeMillis() - nStart);
+    printf(" block index %15" PRI64d "ms\n", GetTimeMillis() - nStart);
 
     if (GetBoolArg("-printblockindex") || GetBoolArg("-printblocktree"))
     {
@@ -804,7 +816,7 @@ bool AppInit2()
     }
 
     printf("%s", strErrors.str().c_str());
-    printf(" wallet      %15"PRI64d"ms\n", GetTimeMillis() - nStart);
+    printf(" wallet      %15" PRI64d "ms\n", GetTimeMillis() - nStart);
 
     RegisterWallet(pwalletMain);
 
@@ -824,7 +836,7 @@ bool AppInit2()
         printf("Rescanning last %i blocks (from block %i)...\n", pindexBest->nHeight - pindexRescan->nHeight, pindexRescan->nHeight);
         nStart = GetTimeMillis();
         pwalletMain->ScanForWalletTransactions(pindexRescan, true);
-        printf(" rescan      %15"PRI64d"ms\n", GetTimeMillis() - nStart);
+        printf(" rescan      %15" PRI64d "ms\n", GetTimeMillis() - nStart);
 
         nWalletDBUpdated++;
 
@@ -866,13 +878,13 @@ bool AppInit2()
         }
     }
 
-    filesystem::path pathBootstrap = GetDataDir() / "bootstrap.dat";
-    if (filesystem::exists(pathBootstrap)) {
+    boost::filesystem::path pathBootstrap = GetDataDir() / "bootstrap.dat";
+    if (boost::filesystem::exists(pathBootstrap)) {
         uiInterface.InitMessage(_("Importing bootstrap blockchain data file."));
 
         FILE *file = fopen(pathBootstrap.string().c_str(), "rb");
         if (file) {
-            filesystem::path pathBootstrapOld = GetDataDir() / "bootstrap.dat.old";
+            boost::filesystem::path pathBootstrapOld = GetDataDir() / "bootstrap.dat.old";
             LoadExternalBlockFile(file);
             RenameOver(pathBootstrap, pathBootstrapOld);
         }
@@ -890,7 +902,7 @@ bool AppInit2()
             printf("Invalid or missing peers.dat; recreating\n");
     }
 
-    printf("Loaded %i addresses from peers.dat  %"PRI64d"ms\n",
+    printf("Loaded %i addresses from peers.dat  %" PRI64d "ms\n",
            addrman.size(), GetTimeMillis() - nStart);
 
     // ********************************************************* Step 11: start node
@@ -901,19 +913,22 @@ bool AppInit2()
     RandAddSeedPerfmon();
 
     //// debug print
-    printf("mapBlockIndex.size() = %"PRIszu"\n",   mapBlockIndex.size());
+    printf("mapBlockIndex.size() = %" PRIszu "\n",   mapBlockIndex.size());
     printf("nBestHeight = %d\n",            nBestHeight);
-    printf("setKeyPool.size() = %"PRIszu"\n",      pwalletMain->setKeyPool.size());
-    printf("mapWallet.size() = %"PRIszu"\n",       pwalletMain->mapWallet.size());
-    printf("mapAddressBook.size() = %"PRIszu"\n",  pwalletMain->mapAddressBook.size());
+    printf("setKeyPool.size() = %" PRIszu "\n",      pwalletMain->setKeyPool.size());
+    printf("mapWallet.size() = %" PRIszu "\n",       pwalletMain->mapWallet.size());
+    printf("mapAddressBook.size() = %" PRIszu "\n",  pwalletMain->mapAddressBook.size());
 
     if (!NewThread(StartNode, NULL))
         InitError(_("Error: could not start node"));
 
-    if (fServer)
-        NewThread(ThreadRPCServer, NULL);
+//    if (fServer)
+//        NewThread(ThreadRPCServer, NULL);
 
     // ********************************************************* Step 12: finished
+
+  // by Simone: starting the RPC thread was here, instead we just unleash it
+    enableRpcExecution = true;
 
     uiInterface.InitMessage(_("Done loading"));
     printf("Done loading\n");
