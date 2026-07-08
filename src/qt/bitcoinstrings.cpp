@@ -30,10 +30,10 @@ QT_TRANSLATE_NOOP("bitcoin-core", ""
 "Detach block and address databases. Increases shutdown time (default: 0)"),
 QT_TRANSLATE_NOOP("bitcoin-core", ""
 "Error initializing database environment %s! To recover, BACKUP THAT "
-"DIRECTORY, then remove everything from it except for wallet.dat."),
+"DIRECTORY, then remove everything from it except for wallet-btg.dat."),
 QT_TRANSLATE_NOOP("bitcoin-core", ""
 "Error: The transaction was rejected.  This might happen if some of the coins "
-"in your wallet were already spent, such as if you used a copy of wallet.dat "
+"in your wallet were already spent, such as if you used a copy of wallet-btg.dat "
 "and coins were spent in the copy but not marked as spent here."),
 QT_TRANSLATE_NOOP("bitcoin-core", ""
 "Error: This transaction requires a transaction fee of at least %s because of "
@@ -60,10 +60,10 @@ QT_TRANSLATE_NOOP("bitcoin-core", ""
 "Warning: Please check that your computer's date and time are correct! If "
 "your clock is wrong BitGem will not work properly."),
 QT_TRANSLATE_NOOP("bitcoin-core", ""
-"Warning: error reading wallet.dat! All keys read correctly, but transaction "
+"Warning: error reading wallet-btg.dat! All keys read correctly, but transaction "
 "data or address book entries might be missing or incorrect."),
 QT_TRANSLATE_NOOP("bitcoin-core", ""
-"Warning: wallet.dat corrupt, data salvaged! Original wallet.dat saved as "
+"Warning: wallet-btg.dat corrupt, data salvaged! Original wallet-btg.dat saved as "
 "wallet.{timestamp}.bak in %s; if your balance or transactions are incorrect "
 "you should restore from a backup."),
 QT_TRANSLATE_NOOP("bitcoin-core", ""
@@ -76,7 +76,7 @@ QT_TRANSLATE_NOOP("bitcoin-core", "Accept connections from outside (default: 1 i
 QT_TRANSLATE_NOOP("bitcoin-core", "Add a node to connect to and attempt to keep the connection open"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Allow DNS lookups for -addnode, -seednode and -connect"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Allow JSON-RPC connections from specified IP address"),
-QT_TRANSLATE_NOOP("bitcoin-core", "Attempt to recover private keys from a corrupt wallet.dat"),
+QT_TRANSLATE_NOOP("bitcoin-core", "Attempt to recover private keys from a corrupt wallet-btg.dat"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Bind to given address. Use [host]:port notation for IPv6"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Block creation options:"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Cannot downgrade wallet"),
@@ -91,9 +91,9 @@ QT_TRANSLATE_NOOP("bitcoin-core", "Discover own IP address (default: 1 when list
 QT_TRANSLATE_NOOP("bitcoin-core", "Don't generate coins"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Done loading"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Error loading blkindex.dat"),
-QT_TRANSLATE_NOOP("bitcoin-core", "Error loading wallet.dat"),
-QT_TRANSLATE_NOOP("bitcoin-core", "Error loading wallet.dat: Wallet corrupted"),
-QT_TRANSLATE_NOOP("bitcoin-core", "Error loading wallet.dat: Wallet requires newer version of BitGem"),
+QT_TRANSLATE_NOOP("bitcoin-core", "Error loading wallet-btg.dat"),
+QT_TRANSLATE_NOOP("bitcoin-core", "Error loading wallet-btg.dat: Wallet corrupted"),
+QT_TRANSLATE_NOOP("bitcoin-core", "Error loading wallet-btg.dat: Wallet requires newer version of BitGem"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Error"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Error: Transaction creation failed  "),
 QT_TRANSLATE_NOOP("bitcoin-core", "Error: Wallet locked, unable to create transaction  "),
@@ -173,5 +173,5 @@ QT_TRANSLATE_NOOP("bitcoin-core", "Verifying database integrity..."),
 QT_TRANSLATE_NOOP("bitcoin-core", "Wallet needed to be rewritten: restart BitGem to complete"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Warning: Disk space is low!"),
 QT_TRANSLATE_NOOP("bitcoin-core", "Warning: This version is obsolete, upgrade required!"),
-QT_TRANSLATE_NOOP("bitcoin-core", "wallet.dat corrupt, salvage failed"),
+QT_TRANSLATE_NOOP("bitcoin-core", "wallet-btg.dat corrupt, salvage failed"),
 };

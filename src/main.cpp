@@ -2564,6 +2564,7 @@ bool LoadBlockIndex(bool fAllowNew)
         pchMessageStart[2] = 0xc0;
         pchMessageStart[3] = 0xef;
 
+        hashGenesisBlock = hashGenesisBlockTestNet;
         bnProofOfStakeLimit = bnProofOfStakeLimitTestNet; // 0x00000fff PoS base target is fixed in testnet
         bnProofOfWorkLimit = bnProofOfWorkLimitTestNet; // 0x0000ffff PoW base target is fixed in testnet
         nStakeMinAge = 2 * 60 * 60; // test net min age is 2 hours
@@ -2571,10 +2572,12 @@ bool LoadBlockIndex(bool fAllowNew)
         nCoinbaseMaturity = 10; // test maturity is 10 blocks
         nStakeTargetSpacing = 3 * 60; // test block spacing is 3 minutes
     }
+    else
+    {
+      hashGenesisBlock = hashGenesisBlockOfficial;
+    }
 
-    //
     // Load block index
-    //
     CTxDB txdb("cr");
     if (!txdb.LoadBlockIndex())
         return false;
@@ -2598,35 +2601,47 @@ bool LoadBlockIndex(bool fAllowNew)
         // Genesis block
         const char* pszTimestamp = "NYT - 16.05.2013 - I.R.S. Chief Out After Protest Over Scrutiny of Groups";
         CTransaction txNew;
-        txNew.nTime = nChainStartTime;
+        CBlock block;
+// PRODUCTION FIX: Retain Bitgem's required temporal offset using static numbers
+        if (fTestNet) 
+        {
+            txNew.nTime  = 1368690376; // Transaction Time base
+            block.nTime  = 1368690396; // Block Time (Static +20 cushion)
+            block.nNonce = 95196;// 1966201;    // Your verified Testnet Nonce
+        } 
+        else 
+        {
+            txNew.nTime  = 1368690376; 
+            block.nTime  = 1368690396; 
+            block.nNonce = 1930625;    // Original Mainnet Nonce
+        }
+
         txNew.vin.resize(1);
         txNew.vout.resize(1);
         txNew.vin[0].scriptSig = CScript() << 486604799 << CBigNum(9999) << vector<unsigned char>((const unsigned char*)pszTimestamp, (const unsigned char*)pszTimestamp + strlen(pszTimestamp));
         txNew.vout[0].SetEmpty();
-        CBlock block;
         block.vtx.push_back(txNew);
         block.hashPrevBlock = 0;
         block.hashMerkleRoot = block.BuildMerkleTree();
         block.nVersion = 1;
-        block.nTime    = nChainStartTime + 20;
         block.nBits    = bnProofOfWorkLimit.GetCompact();
-        block.nNonce   = 1930625;
 
- 	   if (false  && (block.GetHash() != hashGenesisBlock)) {
-	 
-		// This will figure out a valid hash and Nonce if you're
-		// creating a different genesis block:
-		    uint256 hashTarget = CBigNum().SetCompact(block.nBits).getuint256();
-		    while (block.GetHash() > hashTarget)
-		       {
-		           ++block.nNonce;
-		           if (block.nNonce == 0)
-		           {
-		               printf("NONCE WRAPPED, incrementing time");
-		               ++block.nTime;
-		           }
-		       }
-        }
+ 	   if (false  && (block.GetHash() != hashGenesisBlock))
+       {
+         printf("hashing genesis block ...\n");
+         // This will figure out a valid hash and Nonce if you're
+         // creating a different genesis block:
+		 uint256 hashTarget = CBigNum().SetCompact(block.nBits).getuint256();
+		 while (block.GetHash() > hashTarget)
+		 {
+		   ++block.nNonce;
+		   if (block.nNonce == 0)
+		   {
+		     printf("NONCE WRAPPED, incrementing time");
+		     ++block.nTime;
+		   }
+		 }
+       }
 
 
         //// debug print
@@ -2637,7 +2652,6 @@ bool LoadBlockIndex(bool fAllowNew)
         printf("block.nNonce = %u \n", block.nNonce);
 
         assert(block.hashMerkleRoot == uint256("0x21d15eaf90c8c67a94665f9b47686ce54dfd7188fe51621125e04220c93b979e"));
-
         assert(block.GetHash() == hashGenesisBlock);
         assert(block.CheckBlock());
 

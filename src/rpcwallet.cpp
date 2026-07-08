@@ -1486,7 +1486,7 @@ Value backupwallet(const Array& params, bool fHelp)
     if (fHelp || params.size() != 1)
         throw runtime_error(
             "backupwallet <destination>\n"
-            "Safely copies wallet.dat to destination, which can be a directory or a path with filename.");
+            "Safely copies wallet-btg.dat to destination, which can be a directory or a path with filename.");
 
     string strDest = params[0].get_str();
     if (!BackupWallet(*pwalletMain, strDest))

@@ -1114,12 +1114,12 @@ void BitcoinGUI::zapWallet()
 
 // clear tables
 
-  pwalletMain = new CWallet("wallet.dat");
+  pwalletMain = new CWallet("wallet-btg.dat");
   DBErrors nZapWalletRet = pwalletMain->ZapWalletTx(vWtx);
   if (nZapWalletRet != DB_LOAD_OK)
   {
-    splashMessage(_("Error loading wallet.dat: Wallet corrupted"));
-    printf("Error loading wallet.dat: Wallet corrupted\n");
+    splashMessage(_("Error loading wallet-btg.dat: Wallet corrupted"));
+    printf("Error loading wallet-btg.dat: Wallet corrupted\n");
     stwref->hide();
     return;
   }
@@ -1132,7 +1132,7 @@ void BitcoinGUI::zapWallet()
 
   int64 nStart = GetTimeMillis();
   bool fFirstRun = true;
-  pwalletMain = new CWallet("wallet.dat");
+  pwalletMain = new CWallet("wallet-btg.dat");
 
 
   DBErrors nLoadWalletRet = pwalletMain->LoadWallet(fFirstRun);
@@ -1140,18 +1140,18 @@ void BitcoinGUI::zapWallet()
   {
     if (nLoadWalletRet == DB_CORRUPT)
     {
-      splashMessage(_("Error loading wallet.dat: Wallet corrupted"));
-      printf("Error loading wallet.dat: Wallet corrupted\n");
+      splashMessage(_("Error loading wallet-btg.dat: Wallet corrupted"));
+      printf("Error loading wallet-btg.dat: Wallet corrupted\n");
     }
     else if (nLoadWalletRet == DB_NONCRITICAL_ERROR)
     {
-      setStatusTip(tr("Warning: error reading wallet.dat! All keys read correctly, but transaction data or address book entries might be missing or incorrect."));
-      printf("Warning: error reading wallet.dat! All keys read correctly, but transaction data or address book entries might be missing or incorrect.\n");
+      setStatusTip(tr("Warning: error reading wallet-btg.dat! All keys read correctly, but transaction data or address book entries might be missing or incorrect."));
+      printf("Warning: error reading wallet-btg.dat! All keys read correctly, but transaction data or address book entries might be missing or incorrect.\n");
     }
     else if (nLoadWalletRet == DB_TOO_NEW)
     {
-      setStatusTip(tr("Error loading wallet.dat: Wallet requires newer version of BitBar"));
-      printf("Error loading wallet.dat: Wallet requires newer version of BitBar\n");
+      setStatusTip(tr("Error loading wallet-btg.dat: Wallet requires newer version of BitBar"));
+      printf("Error loading wallet-btg.dat: Wallet requires newer version of BitBar\n");
     }
     else if (nLoadWalletRet == DB_NEED_REWRITE)
     {
@@ -1162,8 +1162,8 @@ void BitcoinGUI::zapWallet()
     }
     else
     {
-      setStatusTip(tr("Error loading wallet.dat"));
-      printf("Error loading wallet.dat\n");
+      setStatusTip(tr("Error loading wallet-btg.dat"));
+      printf("Error loading wallet-btg.dat\n");
     } 
   }
   

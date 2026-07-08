@@ -289,7 +289,7 @@ std::string HelpMessage()
         "  -upgradewallet         " + _("Upgrade wallet to latest format") + "\n" +
         "  -keypool=<n>           " + _("Set key pool size to <n> (default: 100)") + "\n" +
         "  -rescan                " + _("Rescan the block chain for missing wallet transactions") + "\n" +
-        "  -salvagewallet         " + _("Attempt to recover private keys from a corrupt wallet.dat") + "\n" +
+        "  -salvagewallet         " + _("Attempt to recover private keys from a corrupt wallet-btg.dat") + "\n" +
         "  -checkblocks=<n>       " + _("How many blocks to check at startup (default: 2500, 0 = all)") + "\n" +
         "  -checklevel=<n>        " + _("How thorough the block verification is (0-6, default: 1)") + "\n" +
         "  -loadblock=<file>      " + _("Imports blocks from external blk000?.dat file") + "\n" +
@@ -461,6 +461,39 @@ bool AppInit2()
     if (!lock.try_lock())
         return InitError(strprintf(_("Cannot obtain a lock on data directory %s.  BitGem is probably already running."), strDataDir.c_str()));
 
+// Bitgem Wallet Migration: Copy legacy wallet.dat to wallet-btg.dat if needed
+    boost::filesystem::path pathOldWallet = GetDataDir() / "wallet.dat";
+    boost::filesystem::path pathNewWallet = GetDataDir() / "wallet-btg.dat";
+    boost::filesystem::path pathBdbLogDir = GetDataDir() / "database";
+
+    if (boost::filesystem::exists(pathOldWallet) && !boost::filesystem::exists(pathNewWallet))
+    {
+      try
+      {
+        printf("Bitgem Migration: Found legacy wallet.dat. Copying to wallet-btg.dat...\n");
+        boost::filesystem::copy_file(pathOldWallet, pathNewWallet);
+        printf("Bitgem Migration: Copy successful! Original wallet.dat preserved.\n");
+
+        // BDB Safety: Clear the contents of the database log folder to prevent environment mismatches
+        if (boost::filesystem::exists(pathBdbLogDir) && boost::filesystem::is_directory(pathBdbLogDir))
+        {
+          printf("Bitgem Migration: Clearing legacy BerkeleyDB log files...\n");
+          boost::filesystem::directory_iterator end_itr;
+          for (boost::filesystem::directory_iterator itr(pathBdbLogDir); itr != end_itr; ++itr)
+          {
+            if (boost::filesystem::is_regular_file(itr->path()))
+            {
+              boost::filesystem::remove(itr->path());
+            }
+          }
+        }
+      }
+      catch (const boost::filesystem::filesystem_error& e)
+      {
+        printf("Bitgem Migration ERROR: Failed to copy wallet file: %s\n", e.what());
+      }
+    }
+
 #if !defined(WIN32) && !defined(QT_GUI)
     if (fDaemon)
     {
@@ -520,30 +553,30 @@ bool AppInit2()
     {
         string msg = strprintf(_("Error initializing database environment %s!"
                                  " To recover, BACKUP THAT DIRECTORY, then remove"
-                                 " everything from it except for wallet.dat."), strDataDir.c_str());
+                                 " everything from it except for wallet-btg.dat."), strDataDir.c_str());
         return InitError(msg);
     }
 
     if (GetBoolArg("-salvagewallet"))
     {
         // Recover readable keypairs:
-        if (!CWalletDB::Recover(bitdb, "wallet.dat", true))
+        if (!CWalletDB::Recover(bitdb, "wallet-btg.dat", true))
             return false;
     }
 
-    if (boost::filesystem::exists(GetDataDir() / "wallet.dat"))
+    if (boost::filesystem::exists(GetDataDir() / "wallet-btg.dat"))
     {
-        CDBEnv::VerifyResult r = bitdb.Verify("wallet.dat", CWalletDB::Recover);
+        CDBEnv::VerifyResult r = bitdb.Verify("wallet-btg.dat", CWalletDB::Recover);
         if (r == CDBEnv::RECOVER_OK)
         {
-            string msg = strprintf(_("Warning: wallet.dat corrupt, data salvaged!"
-                                     " Original wallet.dat saved as wallet.{timestamp}.bak in %s; if"
+            string msg = strprintf(_("Warning: wallet-btg.dat corrupt, data salvaged!"
+                                     " Original wallet-btg.dat saved as wallet.{timestamp}.bak in %s; if"
                                      " your balance or transactions are incorrect you should"
                                      " restore from a backup."), strDataDir.c_str());
             uiInterface.ThreadSafeMessageBox(msg, _("BitGem"), CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION | CClientUIInterface::MODAL);
         }
         if (r == CDBEnv::RECOVER_FAIL)
-            return InitError(_("wallet.dat corrupt, salvage failed"));
+            return InitError(_("wallet-btg.dat corrupt, salvage failed"));
     }
 
     // ********************************************************* Step 6: network initialization
@@ -677,7 +710,7 @@ bool AppInit2()
     {
         string msg = strprintf(_("Error initializing database environment %s!"
                                  " To recover, BACKUP THAT DIRECTORY, then remove"
-                                 " everything from it except for wallet.dat."), strDataDir.c_str());
+                                 " everything from it except for wallet-btg.dat."), strDataDir.c_str());
         return InitError(msg);
     }
 
@@ -746,11 +779,11 @@ bool AppInit2()
         uiInterface.InitMessage(_("Zapping all transactions from wallet..."));
         printf("Zapping all transactions from wallet...\n");
 
-        pwalletMain = new CWallet("wallet.dat");
+        pwalletMain = new CWallet("wallet-btg.dat");
         DBErrors nZapWalletRet = pwalletMain->ZapWalletTx(vWtx);
         if (nZapWalletRet != DB_LOAD_OK) {
-            uiInterface.InitMessage(_("Error loading wallet.dat: Wallet corrupted"));
-            printf("Error loading wallet.dat: Wallet corrupted\n");
+            uiInterface.InitMessage(_("Error loading wallet-btg.dat: Wallet corrupted"));
+            printf("Error loading wallet-btg.dat: Wallet corrupted\n");
             return false;
         }
 
@@ -762,20 +795,20 @@ bool AppInit2()
     printf("Loading wallet...\n");
     nStart = GetTimeMillis();
     bool fFirstRun = true;
-    pwalletMain = new CWallet("wallet.dat");
+    pwalletMain = new CWallet("wallet-btg.dat");
     DBErrors nLoadWalletRet = pwalletMain->LoadWallet(fFirstRun);
     if (nLoadWalletRet != DB_LOAD_OK)
     {
         if (nLoadWalletRet == DB_CORRUPT)
-            strErrors << _("Error loading wallet.dat: Wallet corrupted") << "\n";
+            strErrors << _("Error loading wallet-btg.dat: Wallet corrupted") << "\n";
         else if (nLoadWalletRet == DB_NONCRITICAL_ERROR)
         {
-            string msg(_("Warning: error reading wallet.dat! All keys read correctly, but transaction data"
+            string msg(_("Warning: error reading wallet-btg.dat! All keys read correctly, but transaction data"
                          " or address book entries might be missing or incorrect."));
             uiInterface.ThreadSafeMessageBox(msg, _("BitGem"), CClientUIInterface::OK | CClientUIInterface::ICON_EXCLAMATION | CClientUIInterface::MODAL);
         }
         else if (nLoadWalletRet == DB_TOO_NEW)
-            strErrors << _("Error loading wallet.dat: Wallet requires newer version of BitGem") << "\n";
+            strErrors << _("Error loading wallet-btg.dat: Wallet requires newer version of BitGem") << "\n";
         else if (nLoadWalletRet == DB_NEED_REWRITE)
         {
             strErrors << _("Wallet needed to be rewritten: restart BitGem to complete") << "\n";
@@ -783,7 +816,7 @@ bool AppInit2()
             return InitError(strErrors.str());
         }
         else
-            strErrors << _("Error loading wallet.dat") << "\n";
+            strErrors << _("Error loading wallet-btg.dat") << "\n";
     }
 
     if (GetBoolArg("-upgradewallet", fFirstRun))
@@ -825,7 +858,7 @@ bool AppInit2()
         pindexRescan = pindexGenesisBlock;
     else
     {
-        CWalletDB walletdb("wallet.dat");
+        CWalletDB walletdb("wallet-btg.dat");
         CBlockLocator locator;
         if (walletdb.ReadBestBlock(locator))
             pindexRescan = locator.GetBlockIndex();

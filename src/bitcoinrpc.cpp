@@ -799,10 +799,12 @@ void ThreadRPCServer2(void* parg)
             fprintf(stderr, ".");
             fflush(stderr);
         }
-        fprintf(stderr, "\n");
+        fprintf(stderr, "\r\n");
+        fflush(stdout);
+        fflush(stderr);
 
         // Force a clean kernel-level exit to prevent any trailing thread assertions
-        _exit(1);
+        exit(1);
     }
 
     const bool fUseSSL = GetBoolArg("-rpcssl");
