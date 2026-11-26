@@ -16,7 +16,13 @@ CODECFORTR = UTF-8
 # System Architecture Targeting & Static Toolchain Linkage
 win32 {
     CONFIG += static
+    CONFIG += no_plugin_manifest
+
     DEFINES += _WINDOWS WIN32 _MT
+    DEFINES += BITCOIN_NEED_QT_PLUGINS
+
+    QMAKE_LIBDIR += $$[QT_INSTALL_PLUGINS]/imageformats
+    QTPLUGIN += qwebp
 
     # Enable modern ASLR and DEP security mitigation layouts
     QMAKE_LFLAGS *= -Wl,--dynamicbase -Wl,--nxcompat
@@ -35,17 +41,24 @@ win32 {
 }
 
 !win32 {
-    # Linux and Unix Native Platform Enforcements
-    QMAKE_CXXFLAGS *= -fstack-protector-all --param ssp-buffer-size=1
-    QMAKE_LFLAGS *= -rdynamic -fstack-protector-all --param ssp-buffer-size=1
-    !macx {
-        DEFINES += LINUX
-        LIBS += -lrt
-        QMAKE_LFLAGS *= -no-pie
-    }
-    contains(RELEASE, 1) {
-        LIBS += -Wl,-Bstatic
-    }
+  # Linux and Unix Native Platform Enforcements
+  DEFINES += BITCOIN_NEED_QT_PLUGINS
+  QTPLUGIN += qwebp
+
+  QMAKE_CXXFLAGS *= -fstack-protector-all --param ssp-buffer-size=1 -DBOOST_BIND_GLOBAL_PLACEHOLDERS
+  QMAKE_LFLAGS *= -rdynamic -fstack-protector-all --param ssp-buffer-size=1
+  !macx {
+    DEFINES += LINUX
+
+    # Explicitly pull in your Ubuntu dynamic system libraries here:
+    LIBS += -lboost_system -lboost_filesystem -lboost_thread -lboost_program_options -lboost_chrono
+    LIBS += -ldb_cxx -lssl -lcrypto -lrt
+    LIBS += -lwebp
+    QMAKE_LFLAGS *= -no-pie
+  }
+  contains(RELEASE, 1) {
+    LIBS += -Wl,-Bstatic
+  }
 }
 
 # Mac Build Framework Targets
@@ -57,36 +70,76 @@ macx {
     ICON = src/qt/res/icons/bitcoin.icns
     TARGET = "bitgem-qt"
 
-    # Define a default empty prefix variable
-    DEP_PREFIX = ""
+ CONFIG(static, static|shared) {
+        message("Configuring a fully self-contained, leak-proof STATIC Mac build...")
 
-    # 1. First Check: Detect MacPorts by verifying if its system binary folder exists
-    exists(/opt/local/bin/port) {
-        message("MacPorts environment detected!")
-        DEP_PREFIX = /opt/local
-    } else {
-        # 2. Second Check: Fall back to Homebrew by dynamically pulling its execution prefix
-        message("Homebrew environment or fallback detected!")
-        DEP_PREFIX = $$system(brew --prefix)
+        # 1. Point to your repository's local portable database folder
+        INCLUDEPATH += $$PWD/src/qt/Static-Deps/include
+        DEPENDPATH  += $$PWD/src/qt/Static-Deps/include
+        LIBS        += $$PWD/src/qt/Static-Deps/lib/libdb_cxx.a
+
+        # 2. Map standard include folders
+        STATIC_PREFIX = /usr/local
+        INCLUDEPATH  += $$STATIC_PREFIX/include
+
+        # 3. FIXED HARDCODED FILE LINKERS
+        # Passes the true Homebrew-installed static files by explicitly bypassing -mt tags
+        LIBS += $$STATIC_PREFIX/lib/libboost_filesystem.a \
+                $$STATIC_PREFIX/lib/libboost_program_options.a \
+                $$STATIC_PREFIX/lib/libboost_thread.a \
+                $$STATIC_PREFIX/opt/openssl@3/lib/libssl.a \
+                $$STATIC_PREFIX/opt/openssl@3/lib/libcrypto.a
+
+        # NOTE: WebP libraries are completely omitted here because they are
+        # natively baked directly into your custom static /usr/local/qt5-static build!
     }
 
-    # Dynamic Include Headers Path Mapping (Using whichever manager won the check)
-    INCLUDEPATH += $$DEP_PREFIX/include
-    INCLUDEPATH += $$DEP_PREFIX/opt/boost/include
-    INCLUDEPATH += $$DEP_PREFIX/opt/openssl@3/include
-    INCLUDEPATH += $$DEP_PREFIX/opt/berkeley-db@5/include
+    else {
+        message("Configuring a DYNAMIC Package Manager Mac build...")
 
-    # Dynamic Library Binary Path Mapping
-    LIBS += -L$$DEP_PREFIX/lib
-    LIBS += -L$$DEP_PREFIX/opt/boost/lib -lboost_filesystem -lboost_program_options -lboost_thread
-    LIBS += -L$$DEP_PREFIX/opt/openssl@3/lib -lcrypto -lssl
-    LIBS += -L$$DEP_PREFIX/opt/berkeley-db@5/lib -ldb_cxx
+        # Tell the compiler to look inside your new relative repo folder for WebP & BDB headers
+        INCLUDEPATH += $$PWD/src/qt/Static-Deps/include
+        DEPENDPATH  += $$PWD/src/qt/Static-Deps/include
 
+        # Link your local static WebP engine universal libraries natively out of the repository
+        LIBS += $$PWD/src/qt/Static-Deps/lib/libwebp.a \
+                $$PWD/src/qt/Static-Deps/lib/libsharpyuv.a
+
+        # Define a default empty prefix variable
+        DEP_PREFIX = ""
+
+        # First Check: Detect MacPorts
+        exists(/opt/local/bin/port) {
+            message("MacPorts environment detected!")
+            DEP_PREFIX = /opt/local
+        } else {
+            # Second Check: Fall back to Homebrew
+            message("Homebrew environment or fallback detected!")
+            DEP_PREFIX = $$system(brew --prefix)
+        }
+
+        # Dynamic Include Headers Path Mapping
+        INCLUDEPATH += $$DEP_PREFIX/include
+        INCLUDEPATH += $$DEP_PREFIX/opt/boost/include
+        INCLUDEPATH += $$DEP_PREFIX/opt/openssl@3/include
+        INCLUDEPATH += $$DEP_PREFIX/opt/berkeley-db@5/include
+
+        # Dynamic Library Binary Path Mapping
+        LIBS += -L$$DEP_PREFIX/lib
+        LIBS += -L$$DEP_PREFIX/opt/boost/lib -lboost_filesystem -lboost_program_options -lboost_thread
+        LIBS += -L$$DEP_PREFIX/opt/openssl@3/lib -lcrypto -lssl
+        LIBS += -L$$DEP_PREFIX/opt/berkeley-db@5/lib -ldb_cxx
+    }
+
+    # global mac config flags
     contains(RELEASE, 1) {
         QMAKE_CXXFLAGS += -arch x86_64
         QMAKE_LFLAGS += -arch x86_64
     }
+    QMAKE_MACOSX_DEPLOYMENT_TARGET = 14.0
 }
+
+
 
 # Optional Feature: QRCode Support
 contains(USE_QRCODE, 1) {
@@ -122,11 +175,6 @@ contains(USE_DBUS, 1) {
 contains(FIRST_CLASS_MESSAGING, 1) {
     message(Building with first-class messaging)
     DEFINES += FIRST_CLASS_MESSAGING
-}
-
-contains(BITCOIN_NEED_QT_PLUGINS, 1) {
-    DEFINES += BITCOIN_NEED_QT_PLUGINS
-    QTPLUGIN += qcncodecs qjpcodecs qtwcodecs qkrcodecs qtaccessiblewidgets
 }
 
 # Optional Unit Testing Mechanics
