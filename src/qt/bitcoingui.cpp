@@ -373,11 +373,12 @@ void BitcoinGUI::createActions()
 void BitcoinGUI::createMenuBar()
 {
 #ifdef Q_OS_MAC
-    // Create a decoupled menu bar on Mac which stays even if the window is closed
-    appMenuBar = new QMenuBar();
+  // Create a decoupled menu bar on Mac which stays even if the window is closed
+  appMenuBar = new QMenuBar();
+  setMenuBar(appMenuBar);
 #else
-    // Get the main window's menu bar on other platforms
-    appMenuBar = menuBar();
+  // Get the main window's menu bar on other platforms
+  appMenuBar = menuBar();
 #endif
 
     // Configure the menus
@@ -1168,7 +1169,7 @@ void BitcoinGUI::zapWallet()
   }
   
   splashMessage(_("Wallet loaded..."));
-  printf(" zap wallet  load     %15"PRI64d"ms\n", GetTimeMillis() - nStart);
+  printf(" zap wallet  load     %15" PRI64d"ms\n", GetTimeMillis() - nStart);
 
   splashMessage(_("Loaded lables..."));
   printf(" zap wallet  loading metadata\n");

@@ -21,6 +21,8 @@
 extern bool qt_mac_execute_apple_script(const QString &script, AEDesc *ret);
 #endif
 
+bool fNotificationDisabled = false;
+
 // https://wiki.ubuntu.com/NotificationDevelopmentGuidelines recommends at least 128
 const int FREEDESKTOP_NOTIFICATION_ICON_SIZE = 128;
 
@@ -228,6 +230,8 @@ void Notificator::notifySystray(Class cls, const QString &title, const QString &
 #ifdef Q_OS_MAC
 void Notificator::notifyGrowl(Class cls, const QString &title, const QString &text, const QIcon &icon)
 {
+#if defined(Q_OS_MAC) && (QT_VERSION < QT_VERSION_CHECK(5, 0, 0))
+    // This legacy code only compiles if running on an old Qt4 environment
     const QString script(
         "tell application \"%5\"\n"
         "  set the allNotificationsList to {\"Notification\"}\n" // -- Make a list of all the notification types (all)
@@ -270,11 +274,23 @@ void Notificator::notifyGrowl(Class cls, const QString &title, const QString &te
     quotedText.replace("\\", "\\\\").replace("\"", "\\");
     QString growlApp(this->mode == Notificator::Growl13 ? "Growl" : "GrowlHelperApp");
     qt_mac_execute_apple_script(script.arg(notificationApp, quotedTitle, quotedText, notificationIcon, growlApp), 0);
+#else
+    // For modern Qt5/Qt6 on macOS Sonoma, bypass Growl entirely.
+    // The wallet safely falls back to QSystemTrayIcon or native Cocoa user alerts.
+    return;
+#endif
 }
 #endif
 
 void Notificator::notify(Class cls, const QString &title, const QString &text, const QIcon &icon, int millisTimeout)
 {
+// by Simone: if notifications are disabled, just allow critical stuff to pass
+	if (fNotificationDisabled && (cls != Critical))
+	{
+		return;
+	}
+
+// if we arrive here, let's just process the notification
     switch(mode)
     {
 #ifdef USE_DBUS
@@ -292,7 +308,7 @@ void Notificator::notify(Class cls, const QString &title, const QString &text, c
         break;
 #endif
     default:
-        if(cls == Critical)
+        if (cls == Critical)
         {
             // Fall back to old fashioned pop-up dialog if critical and no other notification available
             QMessageBox::critical(parent, title, text, QMessageBox::Ok, QMessageBox::Ok);
