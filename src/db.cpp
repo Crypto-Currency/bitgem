@@ -83,13 +83,13 @@ bool CDBEnv::Open(boost::filesystem::path pathEnv_)
     if (GetBoolArg("-privdb", true))
         nEnvFlags |= DB_PRIVATE;
 
-    int nDbCache = GetArg("-dbcache", 25);
+    int nDbCache = GetArg("-dbcache",1024);
     dbenv.set_lg_dir(pathLogDir.string().c_str());
     dbenv.set_cachesize(nDbCache / 1024, (nDbCache % 1024)*1048576, 1);
-    dbenv.set_lg_bsize(1048576);
-    dbenv.set_lg_max(10485760);
-    dbenv.set_lk_max_locks(10000);
-    dbenv.set_lk_max_objects(10000);
+    dbenv.set_lg_bsize(16777216);      //16mb changed from 1mb (1048576)
+    dbenv.set_lg_max(67108864);        //64 max log changed from 10mb (10485760)
+    dbenv.set_lk_max_locks(100000);    // *10
+    dbenv.set_lk_max_objects(100000);  // *10
     dbenv.set_errfile(fopen(pathErrorFile.string().c_str(), "a")); /// debug
     dbenv.set_flags(DB_AUTO_COMMIT, 1);
     dbenv.set_flags(DB_TXN_WRITE_NOSYNC, 1);
@@ -829,115 +829,115 @@ bool CTxDB::LoadBlockIndex()
 
 bool CTxDB::LoadBlockIndexGuts()
 {
-    string mess="loading block index ";
-    uiInterface.InitMessage(_(mess.c_str()));
+  string mess="loading block index ";
+  uiInterface.InitMessage(_(mess.c_str()));
 
-    // Get database cursor
-    Dbc* pcursor = GetCursor();
-    if (!pcursor)
-        return false;
+  // Get database cursor
+  Dbc* pcursor = GetCursor();
+  if (!pcursor) return false;
 
-    // Load mapBlockIndex
-    unsigned int fFlags = DB_SET_RANGE;
+  // Load mapBlockIndex
+  unsigned int fFlags = DB_SET_RANGE;
 
-    unsigned int tempcount=0;
-    string tempmess;
+  unsigned int tempcount=0;
+  string tempmess;
 
-    double ccc = 0;
-    double cnt = 0;
-    int oldProgress = -1;
-    cnt = (double)boost::filesystem::file_size(GetDataDir() / "blkindex.dat") / 432.0;
+  double ccc = 0;
+  double cnt = 0;
+  int oldProgress = -1;
+  cnt = (double)boost::filesystem::file_size(GetDataDir() / "blkindex.dat") / 432.0;
 
-    loop()
+  loop()
+  {
+    // Read next record
+    CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+    if(fFlags == DB_SET_RANGE)
+      ssKey << make_pair(string("blockindex"), uint256(0));
+    CDataStream ssValue(SER_DISK, CLIENT_VERSION);
+    int ret = ReadAtCursor(pcursor, ssKey, ssValue, fFlags);
+    fFlags = DB_NEXT;
+    if(ret == DB_NOTFOUND)
+       break;
+    else if (ret != 0)
+      return false;
+
+    // Unserialize
+
+    try
     {
-        // Read next record
-        CDataStream ssKey(SER_DISK, CLIENT_VERSION);
-        if (fFlags == DB_SET_RANGE)
-            ssKey << make_pair(string("blockindex"), uint256(0));
-        CDataStream ssValue(SER_DISK, CLIENT_VERSION);
-        int ret = ReadAtCursor(pcursor, ssKey, ssValue, fFlags);
-        fFlags = DB_NEXT;
-        if (ret == DB_NOTFOUND)
-            break;
-        else if (ret != 0)
-            return false;
+      string strType;
+      ssKey >> strType;
+      if (strType == "blockindex" && !fRequestShutdown)
+      {
+        uint256 hashBlock;
+        ssKey >> hashBlock;
 
-        // Unserialize
+        CDiskBlockIndex diskindex;
+        ssValue >> diskindex;
 
-        try {
-        string strType;
-        ssKey >> strType;
-        if (strType == "blockindex" && !fRequestShutdown)
+        // Construct block index object
+        CBlockIndex* pindexNew = InsertBlockIndex(hashBlock);
+        pindexNew->pprev          = InsertBlockIndex(diskindex.hashPrev);
+        pindexNew->pnext          = InsertBlockIndex(diskindex.hashNext);
+        pindexNew->nFile          = diskindex.nFile;
+        pindexNew->nBlockPos      = diskindex.nBlockPos;
+        pindexNew->nHeight        = diskindex.nHeight;
+        pindexNew->nMint          = diskindex.nMint;
+        pindexNew->nMoneySupply   = diskindex.nMoneySupply;
+        pindexNew->nFlags         = diskindex.nFlags;
+        pindexNew->nStakeModifier = diskindex.nStakeModifier;
+        pindexNew->prevoutStake   = diskindex.prevoutStake;
+        pindexNew->nStakeTime     = diskindex.nStakeTime;
+        pindexNew->hashProofOfStake = diskindex.hashProofOfStake;
+        pindexNew->nVersion       = diskindex.nVersion;
+        pindexNew->hashMerkleRoot = diskindex.hashMerkleRoot;
+        pindexNew->nTime          = diskindex.nTime;
+        pindexNew->nBits          = diskindex.nBits;
+        pindexNew->nNonce         = diskindex.nNonce;
+
+
+        ccc++;
+        tempcount++;
+        if (tempcount >= 1000)
         {
-            CDiskBlockIndex diskindex;
-            ssValue >> diskindex;
-
-            // Construct block index object
-            CBlockIndex* pindexNew = InsertBlockIndex(diskindex.GetBlockHash());
-            pindexNew->pprev          = InsertBlockIndex(diskindex.hashPrev);
-            pindexNew->pnext          = InsertBlockIndex(diskindex.hashNext);
-            pindexNew->nFile          = diskindex.nFile;
-            pindexNew->nBlockPos      = diskindex.nBlockPos;
-            pindexNew->nHeight        = diskindex.nHeight;
-            pindexNew->nMint          = diskindex.nMint;
-            pindexNew->nMoneySupply   = diskindex.nMoneySupply;
-            pindexNew->nFlags         = diskindex.nFlags;
-            pindexNew->nStakeModifier = diskindex.nStakeModifier;
-            pindexNew->prevoutStake   = diskindex.prevoutStake;
-            pindexNew->nStakeTime     = diskindex.nStakeTime;
-            pindexNew->hashProofOfStake = diskindex.hashProofOfStake;
-            pindexNew->nVersion       = diskindex.nVersion;
-            pindexNew->hashMerkleRoot = diskindex.hashMerkleRoot;
-            pindexNew->nTime          = diskindex.nTime;
-            pindexNew->nBits          = diskindex.nBits;
-            pindexNew->nNonce         = diskindex.nNonce;
-
-
-            ccc++;
-            tempcount ++;
-            if(tempcount>=1000)
-            {
-              tempcount=0;
-
-              int progress = (ccc / cnt) * 100;
-              if (progress > 100)
-              {
-                progress = 100;
-              }
-              if (progress != oldProgress)
-              {
-                 loadProgress = progress;        // store for global use
-                oldProgress = progress;
-              }
-
-              sprintf(pString, _("loading blockchain  (%d\%)").c_str(),progress);
-              uiInterface.InitMessage(pString);
-            }
-
-
-            // Watch for genesis block
-            if (pindexGenesisBlock == NULL && diskindex.GetBlockHash() == (!fTestNet ? hashGenesisBlock : hashGenesisBlockTestNet))
-                pindexGenesisBlock = pindexNew;
-
-            if (!pindexNew->CheckIndex())
-                return error("LoadBlockIndex() : CheckIndex failed at %d", pindexNew->nHeight);
-
-            // ppcoin: build setStakeSeen
-            if (pindexNew->IsProofOfStake())
-                setStakeSeen.insert(make_pair(pindexNew->prevoutStake, pindexNew->nStakeTime));
+          tempcount = 0;
+          int progress = (ccc / cnt) * 100;
+          if (progress > 100)
+          {
+            progress = 100;
+          }
+          if (progress != oldProgress)
+          {
+            loadProgress = progress;        // store for global use
+            oldProgress = progress;
+            sprintf(pString, _("loading blockchain  (%d%%)").c_str(), progress);
+            uiInterface.InitMessage(pString);
+          }
         }
-        else
-        {
-            break; // if shutdown requested or finished loading block index
-        }
-        }    // try
-        catch (std::exception &e) {
-            return error("%s() : deserialize error", __PRETTY_FUNCTION__);
-        }
+
+        // Watch for genesis block (use hashBlock from ssKey, NOT diskindex.GetBlockHash()!)
+        if(pindexGenesisBlock == NULL && hashBlock == (!fTestNet ? hashGenesisBlock : hashGenesisBlockTestNet))
+          pindexGenesisBlock = pindexNew;
+
+        if(!pindexNew->CheckIndex())
+          return error("LoadBlockIndex() : CheckIndex failed at %d", pindexNew->nHeight);
+
+        // ppcoin: build setStakeSeen
+        if (pindexNew->IsProofOfStake())
+           setStakeSeen.insert(make_pair(pindexNew->prevoutStake, pindexNew->nStakeTime));
+      }
+      else
+      {
+        break; // if shutdown requested or finished loading block index
+      }
+    }    // try
+    catch (std::exception &e)
+    {
+      return error("%s() : deserialize error", __PRETTY_FUNCTION__);
     }
-    pcursor->close();
-
-    return true;
+  }
+  pcursor->close();
+  return true;
 }
 
 
